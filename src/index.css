@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --emerald-gradient: linear-gradient(180deg, #022c22 0%, #064e3b 100%);
+  --gold-gradient: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C);
+}
+
+body {
+  font-family: "Lexend", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  min-height: max(884px, 100dvh);
+}
+
+.bg-emerald-premium {
+  background: var(--emerald-gradient);
+}
+
+.islamic-pattern-overlay {
+  background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuCc0SDBhAP_8Mq2zJY9kx7j6eHZRfv4PJRFKxDfxZh3uw6gchGKfXrB0Z3WnObIBiVykoq5lPYC08vl4oW5r9gsVcC0FhE19z9znakF6CIM-gw3zLv4tssJgpkrJUvgNQb7AIILOG4XifldlG-fPyF2gY24zyQsz3X7FYh3gixGpNdIFtdrtX-smzgzdaGrc6_mmIJVLQ5Cf1OzV4jar_QAmw1MWsuVzj8aN7EFVtjLIMZAlLnd9Na8BwNgpobEw2UBRYtP46RE_5Jw);
+}
+
+.shimmer-gold-text {
+  background: var(--gold-gradient);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.glass-button {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+}
+
+.book-glow-3d {
+  filter: drop-shadow(0 0 30px rgba(16, 185, 129, 0.5));
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.gold-border-glow {
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.ios-blur {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.grid-card {
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.grid-card:active {
+  transform: scale(0.95);
+}
+
+.icon-container {
+  position: relative;
+  background: linear-gradient(145deg, #1e3a2c, #152a20);
+  box-shadow: 4px 4px 10px rgba(0,0,0,0.3), inset -2px -2px 5px rgba(255,255,255,0.05);
+}
+
+.islamic-pattern {
+  background-color: #102219;
+  background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuDbfdQ74Ha4YuwS9fziMuIC68rzKM9dZ9LgnUz8gsMcnHouOI-gbBBWoohmZpZLnSoS-yKLn5YQCabyMClIxfVyBS3aWWYhgHlhZ7_Q0FI2ua7lokunqz80RA8RDf2GmnpXwROq-2aT6OXG1ADVQQb0DadGi8tMJ8-K1w_yraAbNj3W8Rg_iDQm-kzpxkgH8FmQS-THziKtlnpy9OBp2XhwvWXAYajcyTh6HbcYv8FWkzmETd5UUOz2zvYnSb3jWrT3fsVn0K_L0F2l);
+  opacity: 0.1;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400;
+}
+
+.material-symbols-outlined.filled {
+  font-variation-settings: "FILL" 1, "wght" 400;
+}

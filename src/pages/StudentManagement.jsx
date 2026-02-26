@@ -1,128 +1,85 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
-const STUDENTS = [
-  { id: 'SKSM00124', name: 'Ahmad Zaki bin Rosli', class: '4 Arif', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBl_Rkjsh96NbSMMl1o9BB6-vdYOg_5LgUS_pTbR9NTrA1T8Kosvssw9ReekGoCwl9bou2LMQm7CchBo8d4UgIIDj6l-AzzmSLAV3ArlraK_dwjquOtXRL08wJXQSPFP2IK6zT8v39D5N4JFUiaFVl1O1XN2nDz2T9xXYRlRTttGzzKwfSvgOLw3i2Ur58CzcZsNiob3SwfkLXXZJxMc8DhXhxyN_PWw5PHzivIKe7JWMCMpzEbEn-C23LyLG_uSWSHSG7VPFSc33g-', online: true },
-  { id: 'SKSM00125', name: 'Nur Maisarah binti Azlan', class: '4 Arif', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC4cnsptZjYoDTNtxxdIFCLzjg12tC-BLl5bIsbBa81TyJtqga3d5X7fZN5boYA4eB4hZQkqH5Ks3hdck02JMTtMmGe0kwDdOaTcaGKkEQESYoPdqt52DCboQ-GHXaPLa_BhRaJs0kVYoL3aZ44nP8mHJMEYpqOOF-8axN8MvQuw32lluQ_D2H3omjbOaKMb4T0lRpzxjDhWQQaffXC7NTAiszRSB27o5rev9L9d2WvLVQPygEE-cjCpsCq29-2_IV88uN6G3Eh5r0k', online: false },
-  { id: 'SKSM00126', name: 'Muhammad Farhan bin Johan', class: '4 Arif', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBHHnbKoTg_ETmA3xXylpJqTKtRdEVHAfWPJeGP236h6AX87UepDzbx64IFF3qv3WmEkmxs0rSiVwuvSich0ltJjT9WzzvTBQ-KxM0DcTrSYalA-rob0kzSWhigBsb_9ntI0D_7raqHPYweZ8Ddie3k4eNT2fYnskSDd6owtFJhn71giyZgmwqUlMwPglt2Ej5bA-pQkUN4aZevxMdFALTOJ-Jx_8m9PFjrW30Q-beRC8bJtuh37oVQ4vJCGVQujXBPmSCVTlKVYl2f', online: false },
-  { id: 'SKSM00127', name: 'Siti Khadijah binti Rahim', class: '4 Arif', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAO5CXa_fQreDe4plv3DJl5AJob1SillCOasdOBn9YXwVCjEmJwb27Wc1fWPyBXSLvxIexyggZD0xJixfdTe0kqPNqvBPLzmlAI-Q-Ey1hq917fJAvwWZyS39CQVN2XUovUD4wu4nemFI98u9roMmsrDgn15KHujn_lfuQuTOaJa6ED6cCeensGaCqYEiBY6OqISVj4HDTgU25Rccnjm84aJRSb4xnhOx5GxNnnURt3beTal7TEeHL8em9rzNQxvqkN1HYq5p-TUPfV', online: false },
-  { id: 'SKSM00128', name: 'Irfan Hakim bin Zakaria', class: '4 Arif', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCRRbDoaJqhR_Oax_yqRifgWVZ8gvnuK6WSJgGjpaBG4fxLF67WOX1CAi6ZxNgXUPTGOKDyM9XN2L4bmt92VD3buewIONuqntdnfH3e_PzZzGE1Zx0jXNnofEldoCu1EWhwNeURKhcwG0mEYFKFXsHOi3i2sDuv1sCDD2p6lO4BAbAqOlnkS4SZBiCvO1i9XqNi20eUW9IbAS5YJ_3V6nOo7E3RK93IgcY799jV57D4W2bef9sB926vdcfVZfaOSDyCsxCuDtbjlX33', online: false },
-]
+const StudentManagement = () => {
+  const [students, setStudents] = useState([]);
+  const [name, setName] = useState('');
+  const [className, setClassName] = useState('');
+  const [supervisor, setSupervisor] = useState('');
+  const [editingId, setEditingId] = useState(null);
 
-const YEARS = ['Tahun 4', 'Tahun 5', 'Tahun 6']
-const CLASSES = ['Arif', 'Bijak', 'Cerdik', 'Pintar']
+  const fetchStudents = async () => {
+    const { data } = await supabase
+      .from('students')
+      .select('*')
+      .order('class', { ascending: true })
+      .order('name', { ascending: true });
+    setStudents(data || []);
+  };
 
-export default function StudentManagement() {
-  const navigate = useNavigate()
-  const [search, setSearch] = useState('')
-  const [yearIndex, setYearIndex] = useState(0)
-  const [classIndex, setClassIndex] = useState(0)
+  useEffect(() => { fetchStudents(); }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (editingId) {
+      // POIN 2 & 4: Kemaskini Murid & Penyelia
+      await supabase.from('students').update({ name, class: className, supervisor }).eq('id', editingId);
+      setEditingId(null);
+    } else {
+      // POIN 2: Tambah Manual
+      await supabase.from('students').insert([{ name, class: className, supervisor }]);
+    }
+    setName(''); setClassName(''); setSupervisor('');
+    fetchStudents();
+  };
+
+  const handleEdit = (s) => {
+    setEditingId(s.id);
+    setName(s.name);
+    setClassName(s.class);
+    setSupervisor(s.supervisor || '');
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Padam data murid ini?")) {
+      await supabase.from('students').delete().eq('id', id);
+      fetchStudents();
+    }
+  };
 
   return (
-    <>
-      <header className="sticky top-0 z-40 bg-background-dark/80 ios-blur border-b border-white/10">
-        <div className="flex items-center p-4 justify-between max-w-md mx-auto">
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={() => navigate('/app/utama')} className="text-primary p-1 -ml-1" aria-label="Kembali">
-              <span className="material-symbols-outlined">arrow_back_ios</span>
-            </button>
-            <h1 className="text-xl font-bold tracking-tight">Pengurusan Murid</h1>
-          </div>
-          <button
-            type="button"
-            className="bg-primary hover:bg-primary/90 text-background-dark h-10 w-10 rounded-full flex items-center justify-center transition-transform active:scale-95 shadow-lg shadow-primary/20"
-            aria-label="Tambah murid"
-          >
-            <span className="material-symbols-outlined font-bold">add</span>
+    <div className="p-8 bg-[#fdfdfb] min-h-screen">
+      <div className="max-w-4xl mx-auto">
+        <h2 className="text-2xl font-bold text-[#064e3b] mb-6 underline decoration-[#d4af37]">PENGURUSAN MURID & PENYELIA</h2>
+        
+        {/* FORM TAMBAH/EDIT */}
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-md border-t-4 border-[#064e3b] mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input className="border p-2 rounded" placeholder="Nama Murid" value={name} onChange={(e) => setName(e.target.value)} required />
+          <input className="border p-2 rounded" placeholder="Kelas (cth: 4 ARIF)" value={className} onChange={(e) => setClassName(e.target.value)} required />
+          <input className="border p-2 rounded" placeholder="Nama Penyelia" value={supervisor} onChange={(e) => setSupervisor(e.target.value)} />
+          <button type="submit" className="md:col-span-3 bg-[#064e3b] text-white p-2 rounded hover:bg-emerald-900 transition-all font-bold">
+            {editingId ? 'KEMASKINI DATA' : 'TAMBAH MURID BARU'}
           </button>
-        </div>
-        <div className="px-4 pb-4 max-w-md mx-auto">
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-[20px]">search</span>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2.5 bg-white/5 border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder-white/30 transition-all"
-              placeholder="Cari nama atau ID murid..."
-            />
-          </div>
-        </div>
-      </header>
+        </form>
 
-      <div className="max-w-md mx-auto">
-        <div className="flex gap-2 px-4 py-3 overflow-x-auto hide-scrollbar">
-          {YEARS.map((y, i) => (
-            <button
-              key={y}
-              type="button"
-              onClick={() => setYearIndex(i)}
-              className={`flex h-9 shrink-0 items-center justify-center rounded-full px-5 text-sm font-semibold transition-all ${
-                i === yearIndex ? 'bg-primary text-background-dark' : 'bg-white/10 text-white/80 hover:bg-white/20'
-              }`}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
-
-        <div className="border-b border-white/10 px-4">
-          <div className="flex gap-6 overflow-x-auto hide-scrollbar">
-            {CLASSES.map((c, i) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setClassIndex(i)}
-                className={`flex flex-col items-center border-b-2 py-3 px-1 ${
-                  i === classIndex ? 'border-primary text-primary font-bold' : 'border-transparent text-white/40 font-medium'
-                }`}
-              >
-                <span className="text-sm">{c}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="divide-y divide-white/5">
-          {STUDENTS.map((s) => (
-            <div
-              key={s.id}
-              className="flex items-center gap-4 px-4 py-4 hover:bg-white/5 transition-colors group"
-            >
-              <div className="relative shrink-0">
-                <div
-                  className="size-14 rounded-full bg-white/10 bg-center bg-no-repeat bg-cover"
-                  style={{ backgroundImage: `url('${s.img}')` }}
-                  role="img"
-                  aria-label={s.name}
-                />
-                {s.online && (
-                  <div className="absolute bottom-0 right-0 size-4 bg-primary rounded-full border-2 border-background-dark" />
-                )}
+        {/* SENARAI MURID */}
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          {students.map(s => (
+            <div key={s.id} className="p-4 border-b flex justify-between items-center hover:bg-gray-50">
+              <div>
+                <p className="font-bold text-gray-800">{s.name}</p>
+                <p className="text-sm text-emerald-700">{s.class} | Penyelia: <span className="font-semibold">{s.supervisor || 'Tiada'}</span></p>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold truncate">{s.name}</h3>
-                <p className="text-xs text-white/50 font-mono mt-0.5">ID: {s.id} • {s.class}</p>
-              </div>
-              <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
-                <button type="button" className="p-2 text-white/60 hover:text-primary transition-colors" aria-label="Edit">
-                  <span className="material-symbols-outlined text-[20px]">edit</span>
-                </button>
-                <button type="button" className="p-2 text-white/60 hover:text-red-500 transition-colors" aria-label="Padam">
-                  <span className="material-symbols-outlined text-[20px]">delete</span>
-                </button>
+              <div className="flex gap-2">
+                <button onClick={() => handleEdit(s)} className="text-blue-600 font-bold px-3 py-1 border border-blue-600 rounded hover:bg-blue-50">EDIT</button>
+                <button onClick={() => handleDelete(s.id)} className="text-red-600 font-bold px-3 py-1 border border-red-600 rounded hover:bg-red-50">BUANG</button>
               </div>
             </div>
           ))}
         </div>
-
-        <div className="px-4 py-6 text-center">
-          <p className="text-sm text-white/40">Menunjukkan 5 daripada 32 murid</p>
-          <button type="button" className="mt-4 text-primary text-sm font-semibold hover:underline">
-            Lihat Semua
-          </button>
-        </div>
       </div>
-    </>
-  )
-}
+    </div>
+  );
+};
+
+export default StudentManagement;

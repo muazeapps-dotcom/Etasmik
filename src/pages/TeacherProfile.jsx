@@ -1,125 +1,202 @@
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
-const PROFILE_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAQEvTGIQ9RB01BHRuqjOmDacszKBdy_FJ4LgaWcAHXwOEGAWUobZUOo1Uq5bo2vK9xRky8_nUHDf5pB-J6yhW8lpVjiTZpduK6ME3EQ1lf9Ia0aITeokcG6I21fm0SutFzOYHs1NQYnP6rK1V8UsK9XGDfSddXMj_zyR8VGRX0URGocCjsixKgobgCLrWosZUsauZpRBtX_wFhtkWFxHmFX7G_QT_J9eg31Jy6D5RWZ0ty6Gpctpgeg86puUbMyAYVMAiaKdOBohY1'
+function TeacherProfile() {
+  const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  
+  // State Borang
+  const [name, setName] = useState('');
+  const [position, setPosition] = useState('');
+  const [phone, setPhone] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [editingId, setEditingId] = useState(null);
 
-const serviceInfo = [
-  { icon: 'badge', label: 'ID Kakitangan', value: 'GPI-770921-01' },
-  { icon: 'calendar_today', label: 'Tarikh Berkhidmat', value: '15 Januari 2012' },
-  { icon: 'school', label: 'Pengkhususan', value: 'Al-Quran & Tajwid' },
-]
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
 
-const contactInfo = [
-  { icon: 'email', label: 'E-mel Rasmi', value: 'ahmad.zaki@moe.edu.my' },
-  { icon: 'phone', label: 'No. Telefon', value: '+60 12-345 6789' },
-]
+  async function fetchTeachers() {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      setTeachers(data || []);
+    } catch (error) {
+      console.error("Ralat ambil data guru:", error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-export default function TeacherProfile() {
-  const navigate = useNavigate()
+  // Fungsi Pilih Gambar
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  // Fungsi Muat Naik ke Storage Bucket 'avatar'
+  async function uploadImage(file) {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    let { error: uploadError } = await supabase.storage
+      .from('avatar') // Pastikan nama ini 'avatar' sama dengan di Supabase cikgu
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('avatar').getPublicUrl(filePath);
+    return data.publicUrl;
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setUploading(true);
+    try {
+      let photo_url = editingId ? teachers.find(t => t.id === editingId).photo_url : '';
+      
+      if (imageFile) {
+        photo_url = await uploadImage(imageFile);
+      }
+
+      const teacherData = { 
+        name: name.toUpperCase(), 
+        position: position.toUpperCase(), 
+        phone, 
+        photo_url 
+      };
+
+      if (editingId) {
+        const { error } = await supabase.from('teachers').update(teacherData).eq('id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('teachers').insert([teacherData]);
+        if (error) throw error;
+      }
+
+      resetForm();
+      fetchTeachers();
+      alert("✅ Profil berjaya dikemaskini!");
+    } catch (error) {
+      alert("Ralat: " + error.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function resetForm() {
+    setName(''); setPosition(''); setPhone('');
+    setImageFile(null); setPreviewUrl(null); setEditingId(null);
+  }
+
+  function startEdit(teacher) {
+    setEditingId(teacher.id);
+    setName(teacher.name);
+    setPosition(teacher.position);
+    setPhone(teacher.phone);
+    setPreviewUrl(teacher.photo_url);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function deleteTeacher(id) {
+    if (window.confirm("🗑️ Padam maklumat Ustaz/Ustazah ini?")) {
+      const { error } = await supabase.from('teachers').delete().eq('id', id);
+      if (!error) fetchTeachers();
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-background-dark text-white">
-      <header className="sticky top-0 z-40 bg-background-dark/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-        <button type="button" onClick={() => navigate('/app/utama')} className="p-2 -ml-2 rounded-full hover:bg-white/5 transition-colors" aria-label="Kembali">
-          <span className="material-symbols-outlined">arrow_back_ios_new</span>
-        </button>
-        <h1 className="text-lg font-semibold tracking-tight">Profil Guru</h1>
-        <button type="button" className="text-primary font-medium hover:opacity-80 transition-opacity">Edit</button>
-      </header>
+    <div className="p-6 pb-24 bg-gray-50 min-h-screen">
+      <div className="flex items-center gap-3 mb-6">
+        <span className="material-symbols-outlined text-green-700 text-3xl font-bold">account_box</span>
+        <h1 className="text-2xl font-black text-green-900 uppercase">Profil Guru GPI</h1>
+      </div>
 
-      <main className="max-w-md mx-auto px-6 pb-24">
-        <div className="relative flex flex-col items-center mt-6 mb-10">
-          <div className="absolute -top-4 w-64 h-64 islamic-pattern rounded-full pointer-events-none" aria-hidden />
-          <div className="relative z-10 p-1.5 rounded-full bg-gradient-to-tr from-primary to-emerald-400">
-            <div className="bg-background-dark p-1 rounded-full">
-              <img
-                alt="Profil Guru"
-                className="w-32 h-32 rounded-full object-cover shadow-2xl"
-                src={PROFILE_IMG}
-              />
+      {/* BORANG DAFTAR/EDIT */}
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-3xl shadow-xl border-t-8 border-green-700 mb-10">
+        <div className="flex flex-col items-center mb-6">
+          <label className="relative cursor-pointer group">
+            <div className="w-28 h-28 bg-green-50 rounded-full overflow-hidden border-4 border-white shadow-lg flex items-center justify-center">
+              {previewUrl ? (
+                <img src={previewUrl} className="w-full h-full object-cover" alt="Preview" />
+              ) : (
+                <span className="material-symbols-outlined text-5xl text-green-200">add_a_photo</span>
+              )}
             </div>
-            <div className="absolute bottom-1 right-2 bg-primary text-background-dark p-1.5 rounded-full border-4 border-background-dark">
-              <span className="material-symbols-outlined text-sm">verified_user</span>
+            <div className="absolute bottom-1 right-1 bg-green-700 text-white p-2 rounded-full shadow-md border-2 border-white">
+              <span className="material-symbols-outlined text-sm">edit</span>
             </div>
-          </div>
-          <div className="mt-6 text-center z-10">
-            <h2 className="text-2xl font-bold tracking-tight">Ustaz Ahmad Zaki</h2>
-            <p className="text-primary font-medium mt-1">Guru Pendidikan Islam (GPI)</p>
-            <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wider">
-              SK Sungai Manila
-            </div>
-          </div>
+            <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
+          </label>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="bg-white/5 p-4 rounded-2xl border border-white/5 flex flex-col items-center">
-            <span className="text-2xl font-bold text-primary">42</span>
-            <span className="text-[10px] uppercase tracking-widest text-white/50 font-bold mt-1">Pelajar Tasmik</span>
+        <div className="space-y-4">
+          <input 
+            type="text" placeholder="NAMA PENUH" 
+            className="w-full p-4 bg-gray-50 border-none rounded-2xl font-bold uppercase text-sm focus:ring-2 focus:ring-green-500 outline-none" 
+            value={name} onChange={(e) => setName(e.target.value)} required 
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <input 
+              type="text" placeholder="JAWATAN" 
+              className="w-full p-4 bg-gray-50 border-none rounded-2xl font-bold text-sm focus:ring-2 focus:ring-green-500 outline-none uppercase" 
+              value={position} onChange={(e) => setPosition(e.target.value)} 
+            />
+            <input 
+              type="tel" placeholder="NO. TELEFON" 
+              className="w-full p-4 bg-gray-50 border-none rounded-2xl font-bold text-sm focus:ring-2 focus:ring-green-500 outline-none" 
+              value={phone} onChange={(e) => setPhone(e.target.value)} 
+            />
           </div>
-          <div className="bg-white/5 p-4 rounded-2xl border border-white/5 flex flex-col items-center">
-            <span className="text-2xl font-bold text-primary">12</span>
-            <span className="text-[10px] uppercase tracking-widest text-white/50 font-bold mt-1">Tahun Khidmat</span>
+          <div className="flex gap-3 pt-2">
+            {editingId && (
+              <button type="button" onClick={resetForm} className="flex-1 p-4 bg-gray-100 rounded-2xl font-black text-gray-500">BATAL</button>
+            )}
+            <button 
+              type="submit" disabled={uploading} 
+              className="flex-[2] p-4 bg-green-700 text-white rounded-2xl font-black shadow-lg hover:bg-green-800 transition-all"
+            >
+              {uploading ? 'PROSES...' : editingId ? 'SIMPAN PERUBAHAN' : 'DAFTAR AHLI'}
+            </button>
           </div>
         </div>
+      </form>
 
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-semibold text-white/50 uppercase tracking-widest px-1 mb-3">Maklumat Perkhidmatan</h3>
-            <div className="bg-white/5 rounded-2xl border border-white/5 overflow-hidden">
-              {serviceInfo.map((row, i) => (
-                <div
-                  key={row.label}
-                  className={`flex items-center px-5 py-4 ${i < serviceInfo.length - 1 ? 'border-b border-white/5' : ''}`}
-                >
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mr-4">
-                    <span className="material-symbols-outlined text-primary">{row.icon}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs text-white/50">{row.label}</p>
-                    <p className="font-medium">{row.value}</p>
-                  </div>
-                </div>
-              ))}
+      {/* SENARAI GURU */}
+      <div className="grid grid-cols-1 gap-4">
+        {teachers.map(t => (
+          <div key={t.id} className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-all">
+            <img src={t.photo_url || 'https://via.placeholder.com/150'} className="w-16 h-16 rounded-2xl object-cover border-2 border-green-50" />
+            <div className="flex-1">
+              <p className="font-black text-gray-800 text-sm uppercase leading-tight">{t.name}</p>
+              <p className="text-[10px] font-bold text-green-600 uppercase mt-1">{t.position || 'GURU GPI'}</p>
+              <a href={`https://wa.me/6${t.phone}`} target="_blank" className="text-[10px] font-black text-gray-400 flex items-center gap-1 mt-1">
+                <span className="material-symbols-outlined text-xs">call</span> {t.phone}
+              </a>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => startEdit(t)} className="p-2 text-blue-500 bg-blue-50 rounded-xl hover:bg-blue-600 hover:text-white transition-all">
+                <span className="material-symbols-outlined text-sm">edit</span>
+              </button>
+              <button onClick={() => deleteTeacher(t.id)} className="p-2 text-red-400 bg-red-50 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                <span className="material-symbols-outlined text-sm">delete</span>
+              </button>
             </div>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white/50 uppercase tracking-widest px-1 mb-3">Hubungi</h3>
-            <div className="bg-white/5 rounded-2xl border border-white/5 overflow-hidden">
-              {contactInfo.map((row, i) => (
-                <div
-                  key={row.label}
-                  className={`flex items-center px-5 py-4 ${i < contactInfo.length - 1 ? 'border-b border-white/5' : ''}`}
-                >
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mr-4">
-                    <span className="material-symbols-outlined text-primary">{row.icon}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs text-white/50">{row.label}</p>
-                    <p className="font-medium">{row.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-12 space-y-3">
-          <button
-            type="button"
-            className="w-full bg-primary hover:bg-emerald-500 text-background-dark font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined text-lg">edit</span>
-            Edit Profil Lengkap
-          </button>
-          <button
-            type="button"
-            className="w-full bg-red-500/10 text-red-500 font-semibold py-4 rounded-xl transition-all hover:bg-red-500 hover:text-white flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined text-lg">logout</span>
-            Log Keluar Akaun
-          </button>
-        </div>
-        <div className="h-8" aria-hidden />
-      </main>
-
+        ))}
+      </div>
     </div>
-  )
+  );
 }
+
+export default TeacherProfile;

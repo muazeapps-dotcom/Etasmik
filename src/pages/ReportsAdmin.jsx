@@ -8,7 +8,7 @@ function ReportsAdmin() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 1. Ambil data setiap kali halaman dibuka
+  // Ambil data setiap kali halaman dibuka
   useEffect(() => {
     fetchReports();
   }, []);
@@ -19,27 +19,29 @@ function ReportsAdmin() {
       const { data, error } = await supabase
         .from('tasmik_records')
         .select('*')
-        .order('date', { ascending: false }) // Tarikh terbaru di atas
-        .order('created_at', { ascending: false }); // Jika tarikh sama, masa terbaru di atas
+        .order('date', { ascending: false }) // Susun tarikh terbaru di atas
+        .order('created_at', { ascending: false }); // Jika tarikh sama, susun ikut masa kunci masuk
 
       if (error) throw error;
+
+      // Elakkan rekod bertindan dengan memastikan data baru menggantikan data lama sepenuhnya
       setRecords(data || []);
     } catch (error) {
-      console.error('Ralat mengambil data:', error.message);
-      alert("Gagal memuatkan data. Sila semak sambungan internet.");
+      console.error('Ralat:', error.message);
+      alert("Gagal memuatkan laporan. Sila cuba lagi.");
     } finally {
       setLoading(false);
     }
   }
 
-  // 2. Fungsi Muat Turun Excel (Direct to Device)
+  // FUNGSI MUAT TURUN EXCEL (Terus ke peranti)
   const downloadExcel = () => {
     if (records.length === 0) {
       alert("Tiada data untuk dimuat turun.");
       return;
     }
 
-    // Susun data untuk Excel
+    // Susun format kolum untuk Excel
     const dataToExport = records.map((r, index) => ({
       'BIL': index + 1,
       'TARIKH': r.date,
@@ -50,32 +52,30 @@ function ReportsAdmin() {
       'CATATAN': r.remarks || '-'
     }));
 
-    // Proses bina fail Excel
+    // Proses Bina Fail
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Tasmik 2026");
     
-    // Nama fail mengikut tarikh semasa muat turun
-    const fileName = `Laporan_Tasmik_Digital_${new Date().toISOString().split('T')[0]}.xlsx`;
-    
-    // Perintah muat turun ke peranti
-    XLSX.writeFile(workbook, fileName);
+    // Nama fail automatik dengan tarikh hari ini
+    const tarikhHariIni = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(workbook, `Laporan_Tasmik_Digital_${tarikhHariIni}.xlsx`);
   };
 
-  // 3. Fungsi Carian (Filter)
+  // Tapis senarai berdasarkan carian nama/kelas
   const filteredRecords = records.filter(r => 
     r.student_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="p-4 max-w-5xl mx-auto mb-24 min-h-screen bg-gray-50">
-      {/* Header & Butang Muat Turun */}
+    <div className="p-4 max-w-5xl mx-auto mb-24 min-h-screen">
+      {/* Bahagian Header & Butang Excel */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-black text-green-900 italic uppercase flex items-center gap-2">
-            <BookOpen className="text-green-600" size={32} /> Laporan Pentadbir
+            <BookOpen size={32} className="text-green-600" /> Laporan Pentadbir
           </h1>
-          <p className="text-gray-500 font-bold text-sm ml-1">Urus & pantau rekod tasmik murid 2026</p>
+          <p className="text-gray-500 font-bold text-sm">Rekod rasmi tasmik murid 2026</p>
         </div>
         
         <button 
@@ -87,7 +87,7 @@ function ReportsAdmin() {
         </button>
       </div>
 
-      {/* Bar Carian & Butang Refresh */}
+      {/* Bar Carian & Refresh */}
       <div className="flex gap-2 mb-6">
         <div className="relative flex-1">
           <input 
@@ -101,59 +101,50 @@ function ReportsAdmin() {
         </div>
         <button 
           onClick={fetchReports}
-          title="Refresh Data"
-          className="p-4 bg-white border-2 border-gray-100 rounded-2xl text-green-600 hover:bg-green-50 shadow-sm transition-colors"
+          className="p-4 bg-white border-2 border-gray-100 rounded-2xl text-green-600 hover:bg-green-50 shadow-sm"
         >
           <RefreshCw size={24} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
 
-      {/* Senarai Rekod (Laporan) */}
+      {/* Senarai Laporan */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-green-800">
-          <RefreshCw size={48} className="animate-spin mb-4" />
-          <p className="font-black animate-pulse uppercase tracking-widest">Memproses Data Terkini...</p>
+        <div className="flex flex-col items-center justify-center py-20 text-green-800 font-black animate-pulse">
+          MEMPROSES DATA...
         </div>
       ) : (
         <div className="grid gap-4">
           {filteredRecords.length > 0 ? (
             filteredRecords.map((r) => (
-              <div 
-                key={r.id} 
-                className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-md transition-all"
-              >
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                  <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center text-green-700 font-black">
+              <div key={r.id} className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center text-green-700 font-black">
                     <User size={28} />
                   </div>
                   <div>
-                    <h3 className="font-black text-gray-800 uppercase text-sm md:text-base leading-tight">
-                      {r.student_name}
-                    </h3>
-                    <div className="flex items-center gap-3 mt-1 text-gray-400 font-bold text-[11px]">
-                      <span className="flex items-center gap-1 uppercase tracking-tighter">
-                        <Calendar size={12} className="text-green-500" /> {r.date}
-                      </span>
+                    <h3 className="font-black text-gray-800 uppercase leading-tight">{r.student_name}</h3>
+                    <div className="flex items-center gap-2 mt-1 text-gray-400 font-bold text-[11px]">
+                      <Calendar size={12} /> {r.date}
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-                  <span className="bg-gray-100 text-gray-700 text-[10px] px-4 py-2 rounded-xl font-black uppercase border border-gray-200">
+                <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end font-black uppercase text-[10px]">
+                  <span className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl border border-gray-200">
                     {r.reading_type}
                   </span>
-                  <span className="bg-blue-50 text-blue-700 text-[10px] px-4 py-2 rounded-xl font-black uppercase border border-blue-100">
+                  <span className="bg-blue-50 text-blue-700 px-4 py-2 rounded-xl border border-blue-100">
                     {r.level}
                   </span>
-                  <span className="bg-orange-50 text-orange-700 text-[10px] px-4 py-2 rounded-xl font-black uppercase border border-orange-100">
-                    Halaman: {r.page_number}
+                  <span className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl border border-orange-100">
+                    M/S: {r.page_number}
                   </span>
                 </div>
               </div>
             ))
           ) : (
             <div className="text-center py-20 bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-200">
-              <p className="font-bold text-gray-400 italic">Tiada rekod tasmik ditemui untuk carian ini.</p>
+              <p className="font-bold text-gray-400 italic">Tiada rekod ditemui.</p>
             </div>
           )}
         </div>

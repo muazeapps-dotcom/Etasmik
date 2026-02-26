@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 
-function Tasmik() {
+function TasmikInput() { // Nama fungsi diselaraskan dengan nama fail
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('');
   const [readingType, setReadingType] = useState('Al-Quran');
@@ -34,11 +34,11 @@ function Tasmik() {
     if (!selectedStudent) return alert("Sila pilih murid!");
     
     setLoading(true);
-    // Gunakan waktu tempatan Malaysia untuk tarikh
+    // Format tarikh YYYY-MM-DD
     const tarikhHariIni = new Date().toLocaleDateString('en-CA'); 
 
     try {
-      // 1. UPDATE maklumat murid (Gunakan .update lebih selamat daripada .upsert)
+      // 1. UPDATE maklumat murid
       const { error: updateError } = await supabase
         .from('students')
         .update({ 
@@ -47,11 +47,11 @@ function Tasmik() {
           last_page: page,             
           last_reading_type: readingType 
         })
-        .eq('id', selectedStudent); // Cari murid berdasarkan ID
+        .eq('id', selectedStudent);
 
       if (updateError) throw updateError;
 
-      // 2. SIMPAN SEJARAH (Dalam tasmik_records)
+      // 2. SIMPAN SEJARAH
       const { error: historyError } = await supabase
         .from('tasmik_records')
         .insert([{
@@ -65,9 +65,10 @@ function Tasmik() {
       if (historyError) throw historyError;
 
       alert("Rekod Berjaya Disimpan!");
+      // Reset form
       setPage('');
       setLevel('');
-      setSelectedStudent(''); // Reset pilihan murid
+      setSelectedStudent(''); 
     } catch (error) {
       alert("Ralat Simpan: " + error.message);
       console.error(error);
@@ -106,7 +107,7 @@ function Tasmik() {
                 type="button"
                 onClick={() => {
                   setReadingType(type);
-                  setLevel(''); // Reset tahap bila tukar jenis
+                  setLevel(''); 
                 }}
                 className={`flex-1 py-3 rounded-xl font-black text-xs transition-all ${
                   readingType === type ? 'bg-white text-green-700 shadow-sm' : 'text-gray-400'
@@ -162,4 +163,4 @@ function Tasmik() {
   );
 }
 
-export default Tasmik;
+export default TasmikInput;

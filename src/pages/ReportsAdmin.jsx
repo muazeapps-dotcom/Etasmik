@@ -1,154 +1,172 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import * as XLSX from 'xlsx'; 
-import { FileSpreadsheet, RefreshCw, Search, User, Calendar, BookOpen } from 'lucide-react';
+import { FileSpreadsheet, RefreshCw, Search, User, LayoutDashboard, ChevronRight, BarChart3 } from 'lucide-react';
+
+const CLASSES = ['SEMUA', '4 ARIF', '4 PINTAR', '4 BIJAK', '4 CERDIK', '5 ARIF', '5 PINTAR', '5 BIJAK', '5 CERDIK', '6 ARIF', '6 PINTAR', '6 BIJAK', '6 CERDIK'];
 
 function ReportsAdmin() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('SEMUA');
 
-  // Ambil data setiap kali halaman dibuka
   useEffect(() => {
     fetchReports();
   }, []);
 
   async function fetchReports() {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('tasmik_records')
-        .select('*')
-        .order('date', { ascending: false }) // Susun tarikh terbaru di atas
-        .order('created_at', { ascending: false }); // Jika tarikh sama, susun ikut masa kunci masuk
+    // Ambil data terbaru (descending) supaya tidak bertindan di paparan
+    const { data, error } = await supabase
+      .from('tasmik_records')
+      .select('*')
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
-
-      // Elakkan rekod bertindan dengan memastikan data baru menggantikan data lama sepenuhnya
-      setRecords(data || []);
-    } catch (error) {
-      console.error('Ralat:', error.message);
-      alert("Gagal memuatkan laporan. Sila cuba lagi.");
-    } finally {
-      setLoading(false);
-    }
+    if (!error) setRecords(data || []);
+    setLoading(false);
   }
 
-  // FUNGSI MUAT TURUN EXCEL (Terus ke peranti)
-  const downloadExcel = () => {
-    if (records.length === 0) {
-      alert("Tiada data untuk dimuat turun.");
-      return;
-    }
+  // 1. LOGIK TAPISAN (Filter mengikut Tab & Search)
+  const filteredRecords = records.filter(r => {
+    const matchClass = activeTab === 'SEMUA' || r.student_name.includes(`(${activeTab})`);
+    const matchSearch = r.student_name.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchClass && matchSearch;
+  });
 
-    // Susun format kolum untuk Excel
-    const dataToExport = records.map((r, index) => ({
-      'BIL': index + 1,
+  // 2. LOGIK STATISTIK (Ringkasan Keseluruhan Berdasarkan Rekod Terkini Murid)
+  const getStats = (dataList) => {
+    const latestPerStudent = {};
+    // Ambil hanya rekod paling baru untuk setiap murid supaya statistik tepat
+    dataList.forEach(r => {
+      if (!latestPerStudent[r.student_name]) {
+        latestPerStudent[r.student_name] = r;
+      }
+    });
+
+    const stats = { 'Iqra 1-3': 0, 'Iqra 4-6': 0, 'Al-Quran': 0, 'Jumlah': 0 };
+    Object.values(latestPerStudent).forEach(r => {
+      stats['Jumlah']++;
+      if (r.reading_type === 'Al-Quran') {
+        stats['Al-Quran']++;
+      } else {
+        const lvl = parseInt(r.level);
+        if (lvl <= 3) stats['Iqra 1-3']++;
+        else stats['Iqra 4-6']++;
+      }
+    });
+    return stats;
+  };
+
+  const stats = getStats(filteredRecords);
+
+  // 3. FUNGSI DOWNLOAD EXCEL
+  const downloadExcel = () => {
+    const exportData = filteredRecords.map((r, i) => ({
+      'BIL': i + 1,
       'TARIKH': r.date,
       'NAMA & KELAS': r.student_name,
       'JENIS BACAAN': r.reading_type,
-      'TAHAP/IQRA': r.level,
+      'TAHAP/JUZ': r.level,
       'HALAMAN': r.page_number,
-      'CATATAN': r.remarks || '-'
+      'CATATAN': r.remarks
     }));
-
-    // Proses Bina Fail
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Tasmik 2026");
-    
-    // Nama fail automatik dengan tarikh hari ini
-    const tarikhHariIni = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(workbook, `Laporan_Tasmik_Digital_${tarikhHariIni}.xlsx`);
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Laporan");
+    XLSX.writeFile(wb, `Laporan_Tasmik_${activeTab}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // Tapis senarai berdasarkan carian nama/kelas
-  const filteredRecords = records.filter(r => 
-    r.student_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
-    <div className="p-4 max-w-5xl mx-auto mb-24 min-h-screen">
-      {/* Bahagian Header & Butang Excel */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+    <div className="p-4 max-w-6xl mx-auto mb-24 min-h-screen bg-gray-50">
+      {/* Header & Excel Button */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-black text-green-900 italic uppercase flex items-center gap-2">
-            <BookOpen size={32} className="text-green-600" /> Laporan Pentadbir
+          <h1 className="text-3xl font-black text-green-900 uppercase italic flex items-center gap-2">
+            <LayoutDashboard size={32} /> Laporan {activeTab}
           </h1>
-          <p className="text-gray-500 font-bold text-sm">Rekod rasmi tasmik murid 2026</p>
+          <p className="text-gray-500 font-bold text-xs uppercase tracking-widest">Sistem Tasmik Digital 2026</p>
         </div>
-        
-        <button 
-          onClick={downloadExcel}
-          className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl transition-all transform active:scale-95"
-        >
-          <FileSpreadsheet size={24} />
-          MUAT TURUN EXCEL
+        <button onClick={downloadExcel} className="w-full md:w-auto bg-green-600 text-white px-6 py-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-xl hover:bg-green-700 active:scale-95 transition-all">
+          <FileSpreadsheet size={20} /> MUAT TURUN EXCEL
         </button>
       </div>
 
-      {/* Bar Carian & Refresh */}
-      <div className="flex gap-2 mb-6">
-        <div className="relative flex-1">
-          <input 
-            type="text"
-            placeholder="Cari nama murid atau kelas..."
-            className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-gray-100 focus:border-green-500 outline-none font-bold text-gray-700 shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-        </div>
-        <button 
-          onClick={fetchReports}
-          className="p-4 bg-white border-2 border-gray-100 rounded-2xl text-green-600 hover:bg-green-50 shadow-sm"
-        >
-          <RefreshCw size={24} className={loading ? "animate-spin" : ""} />
-        </button>
+      {/* STATISTIK RINGKASAN (Dashboard Atas) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {Object.entries(stats).map(([key, val]) => (
+          <div key={key} className="bg-white p-5 rounded-[2rem] shadow-sm border-b-4 border-green-500">
+            <div className="flex justify-between items-start">
+              <p className="text-[10px] font-black text-gray-400 uppercase">{key}</p>
+              <BarChart3 size={16} className="text-green-200" />
+            </div>
+            <p className="text-3xl font-black text-green-700 mt-1">{val} <span className="text-[10px] text-gray-400">MURID</span></p>
+          </div>
+        ))}
       </div>
 
-      {/* Senarai Laporan */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-green-800 font-black animate-pulse">
-          MEMPROSES DATA...
+      {/* TOMBOL KELAS (Navigation Tabs) */}
+      <div className="mb-6 overflow-x-auto no-scrollbar">
+        <div className="flex gap-2 pb-2">
+          {CLASSES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setActiveTab(c)}
+              className={`whitespace-nowrap px-6 py-3 rounded-2xl font-black text-[10px] transition-all border-2 ${
+                activeTab === c 
+                ? 'bg-green-600 border-green-600 text-white shadow-lg' 
+                : 'bg-white border-gray-100 text-gray-400 hover:border-green-200'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="grid gap-4">
-          {filteredRecords.length > 0 ? (
-            filteredRecords.map((r) => (
-              <div key={r.id} className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center text-green-700 font-black">
-                    <User size={28} />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-gray-800 uppercase leading-tight">{r.student_name}</h3>
-                    <div className="flex items-center gap-2 mt-1 text-gray-400 font-bold text-[11px]">
-                      <Calendar size={12} /> {r.date}
-                    </div>
-                  </div>
+      </div>
+
+      {/* SEARCH BAR */}
+      <div className="relative mb-8">
+        <input 
+          type="text" placeholder="Cari nama murid..."
+          className="w-full p-5 pl-14 rounded-3xl bg-white border-none shadow-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-green-500"
+          value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Search className="absolute left-5 top-5 text-gray-300" />
+        <button onClick={fetchReports} className="absolute right-4 top-4 p-1 text-green-600"><RefreshCw size={24} className={loading ? 'animate-spin' : ''}/></button>
+      </div>
+
+      {/* SENARAI REKOD */}
+      <div className="grid gap-3">
+        {loading ? (
+          <div className="text-center py-20 font-black text-green-800 animate-pulse tracking-widest">MEMPROSES DATA...</div>
+        ) : filteredRecords.length > 0 ? (
+          filteredRecords.map((r) => (
+            <div key={r.id} className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-100 flex justify-between items-center group hover:shadow-md transition-all">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 font-black">
+                  <User size={24} />
                 </div>
-                
-                <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end font-black uppercase text-[10px]">
-                  <span className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl border border-gray-200">
-                    {r.reading_type}
-                  </span>
-                  <span className="bg-blue-50 text-blue-700 px-4 py-2 rounded-xl border border-blue-100">
-                    {r.level}
-                  </span>
-                  <span className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl border border-orange-100">
-                    M/S: {r.page_number}
-                  </span>
+                <div>
+                  <h3 className="font-black text-gray-800 text-sm uppercase leading-tight">{r.student_name}</h3>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mt-1 tracking-tighter italic">{r.date} • {r.reading_type} TAHAP {r.level}</p>
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-20 bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-200">
-              <p className="font-bold text-gray-400 italic">Tiada rekod ditemui.</p>
+              <div className="flex items-center gap-4">
+                <div className="text-right hidden sm:block">
+                  <p className="text-[10px] font-black text-gray-300 uppercase">Halaman</p>
+                  <p className="font-black text-green-600">MS {r.page_number}</p>
+                </div>
+                <ChevronRight className="text-gray-200 group-hover:text-green-500 transition-colors" size={20} />
+              </div>
             </div>
-          )}
-        </div>
-      )}
+          ))
+        ) : (
+          <div className="text-center py-20 bg-gray-100 rounded-[3rem] border-2 border-dashed border-gray-300 font-bold text-gray-400 italic">
+            Tiada rekod tasmik ditemui untuk {activeTab}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

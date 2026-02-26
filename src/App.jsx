@@ -2,7 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
 import Landing from './pages/Landing';
 import StudentManagement from './pages/StudentManagement';
-import TasmikInput from './pages/TasmikInput'; 
+import TasmikForm from './pages/TasmikForm'; // Dah tukar dari TasmikInput ke TasmikForm
 import ReportsAdmin from './pages/ReportsAdmin';
 import TeacherProfile from './pages/TeacherProfile';
 
@@ -13,7 +13,7 @@ function App() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Landing />} />
         <Route path="/students" element={<StudentManagement />} />
-        <Route path="/tasmik" element={<TasmikInput />} /> 
+        <Route path="/tasmik" element={<TasmikForm />} />  {/* Dah tukar di sini juga */}
         <Route path="/reports" element={<ReportsAdmin />} />
         <Route path="/profile" element={<TeacherProfile />} />
       </Route>

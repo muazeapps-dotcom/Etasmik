@@ -34,22 +34,20 @@ function Tasmik() {
     if (!selectedStudent) return alert("Sila pilih murid!");
     
     setLoading(true);
-    const tarikhHariIni = new Date().toISOString().split('T')[0];
-    const studentData = students.find(s => s.id === selectedStudent);
+    // Gunakan waktu tempatan Malaysia untuk tarikh
+    const tarikhHariIni = new Date().toLocaleDateString('en-CA'); 
 
     try {
-      // 1. UPDATE maklumat murid (Sertakan level dan page supaya muncul di laporan)
+      // 1. UPDATE maklumat murid (Gunakan .update lebih selamat daripada .upsert)
       const { error: updateError } = await supabase
         .from('students')
-        .upsert({ 
-          id: selectedStudent, 
-          name: studentData.name, 
-          class: studentData.class,
+        .update({ 
           last_tasmik: tarikhHariIni,
-          last_level: level,           // Menyimpan tahap (Iqra/Juzuk)
-          last_page: page,             // Menyimpan muka surat
-          last_reading_type: readingType // Menyimpan jenis bacaan
-        });
+          last_level: level,           
+          last_page: page,             
+          last_reading_type: readingType 
+        })
+        .eq('id', selectedStudent); // Cari murid berdasarkan ID
 
       if (updateError) throw updateError;
 
@@ -69,8 +67,10 @@ function Tasmik() {
       alert("Rekod Berjaya Disimpan!");
       setPage('');
       setLevel('');
+      setSelectedStudent(''); // Reset pilihan murid
     } catch (error) {
       alert("Ralat Simpan: " + error.message);
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -79,7 +79,7 @@ function Tasmik() {
   return (
     <div className="p-4 max-w-xl mx-auto mb-20">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-black text-green-800 italic">BORANG TASMIK</h1>
+        <h1 className="text-3xl font-black text-green-800 italic uppercase">Borang Tasmik</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -104,7 +104,10 @@ function Tasmik() {
               <button
                 key={type}
                 type="button"
-                onClick={() => setReadingType(type)}
+                onClick={() => {
+                  setReadingType(type);
+                  setLevel(''); // Reset tahap bila tukar jenis
+                }}
                 className={`flex-1 py-3 rounded-xl font-black text-xs transition-all ${
                   readingType === type ? 'bg-white text-green-700 shadow-sm' : 'text-gray-400'
                 }`}
@@ -149,7 +152,7 @@ function Tasmik() {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-green-700 text-white p-5 rounded-2xl font-black shadow-xl mt-4 disabled:bg-gray-300"
+            className="w-full bg-green-700 text-white p-5 rounded-2xl font-black shadow-xl mt-4 disabled:bg-gray-300 hover:bg-green-800 transition-colors"
           >
             {loading ? 'SEDANG SIMPAN...' : 'SIMPAN REKOD'}
           </button>

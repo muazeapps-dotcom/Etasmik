@@ -12,6 +12,8 @@ import {
 
 function TasmikInput() {
   const navigate = useNavigate();
+
+  // 1. SENARAI KELAS LENGKAP
   const classes = [
     '4 ARIF', '4 PINTAR', '4 BIJAK', '4 CERDIK',
     '5 ARIF', '5 PINTAR', '5 BIJAK', '5 CERDIK',
@@ -22,15 +24,18 @@ function TasmikInput() {
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // State untuk Identiti Murid
   const [studentId, setStudentId] = useState('');
   const [studentName, setStudentName] = useState('');
   
-  // State untuk Borang (Gambar 1)
+  // State untuk Borang Rekod
   const [readingType, setReadingType] = useState('Al-Quran');
   const [level, setLevel] = useState('');
   const [pageNumber, setPageNumber] = useState('');
   const [remarks, setRemarks] = useState('');
 
+  // Ambil data murid berdasarkan kelas
   useEffect(() => {
     if (selectedClass) {
       fetchStudents();
@@ -46,7 +51,7 @@ function TasmikInput() {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Ralat:', error);
+      console.error('Ralat ambil murid:', error);
     } else {
       setStudents(data || []);
     }
@@ -55,29 +60,38 @@ function TasmikInput() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!studentId) return alert("Sila pilih murid.");
+    if (!studentId || !level || !pageNumber) {
+      alert("Sila pilih murid dan isi maklumat tasmik dengan lengkap!");
+      return;
+    }
 
     setLoading(true);
     try {
       const { error } = await supabase
         .from('tasmik_records')
-        .insert([{
-          student_id: studentId,
-          student_name: studentName,
-          class: selectedClass,
-          reading_type: readingType,
-          level: level,
-          page_number: parseInt(pageNumber),
-          remarks: remarks,
-          date: new Date().toISOString()
-        }]);
+        .insert([
+          {
+            student_id: studentId,
+            student_name: studentName,
+            class: selectedClass,
+            reading_type: readingType,
+            level: level,
+            page_number: parseInt(pageNumber),
+            remarks: remarks,
+            date: new Date().toISOString()
+          }
+        ]);
 
       if (error) throw error;
+
       alert("✅ REKOD BERJAYA DISIMPAN!");
-      navigate('/reports'); // Automatik ke laporan
+      
+      // MUKTAMAD: Pindah ke halaman laporan (Path dari App.jsx anda)
+      navigate('/reports');
       
     } catch (error) {
-      alert("❌ GAGAL: " + error.message);
+      console.error('Error:', error);
+      alert("❌ GAGAL SIMPAN: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -111,10 +125,10 @@ function TasmikInput() {
                   setStudentId('');
                   setStudentName('');
                 }}
-                className={`py-3 px-2 rounded-2xl font-black text-xs border-2 transition-all ${
+                className={`py-3 px-2 rounded-2xl font-black text-xs transition-all border-2 ${
                   selectedClass === c 
-                  ? 'bg-green-600 text-white border-green-600 shadow-md' 
-                  : 'bg-white text-gray-400 border-gray-100'
+                  ? 'bg-green-600 text-white border-green-600 shadow-lg' 
+                  : 'bg-white text-gray-400 border-gray-100 hover:border-green-200'
                 }`}
               >
                 {c}
@@ -124,9 +138,9 @@ function TasmikInput() {
         </div>
 
         {selectedClass && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             
-            {/* 2. PILIH MURID (Senarai Nama) */}
+            {/* 2. PILIH MURID */}
             <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-gray-100">
               <span className="text-[10px] font-black text-green-600 uppercase mb-4 block text-center tracking-widest">Langkah 2: Pilih Murid</span>
               
@@ -135,7 +149,7 @@ function TasmikInput() {
                 <input 
                   type="text"
                   placeholder="Cari nama murid..."
-                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-gray-50 border-none font-bold text-sm outline-none"
+                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-gray-50 border-none font-bold text-sm outline-none focus:ring-2 focus:ring-green-500"
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
@@ -150,8 +164,8 @@ function TasmikInput() {
                       onClick={() => {
                         setStudentId(s.id);
                         setStudentName(s.name);
-                        // Skrol ke bawah sikit supaya nampak borang
-                        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 200);
+                        // Skrol ke borang secara automatik
+                        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 300);
                       }}
                       className={`w-full p-4 rounded-2xl flex items-center justify-between text-left transition-all ${
                         studentId === s.id 
@@ -159,7 +173,12 @@ function TasmikInput() {
                         : 'bg-gray-50 border-2 border-transparent'
                       }`}
                     >
-                      <span className={`text-[11px] font-black uppercase ${studentId === s.id ? 'text-green-800' : 'text-gray-600'}`}>{s.name}</span>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${studentId === s.id ? 'bg-green-600 text-white' : 'bg-white text-gray-400 shadow-sm'}`}>
+                          <User size={16}/>
+                        </div>
+                        <span className={`text-[11px] font-black uppercase ${studentId === s.id ? 'text-green-800' : 'text-gray-600'}`}>{s.name}</span>
+                      </div>
                       <ChevronRight size={16} className={studentId === s.id ? 'text-green-600' : 'text-gray-300'} />
                     </button>
                   ))
@@ -167,20 +186,20 @@ function TasmikInput() {
               </div>
             </div>
 
-            {/* 3. BORANG REKOD (BAHAGIAN YANG CIKGU NAK DI GAMBAR 1) */}
+            {/* 3. BORANG REKOD (DI BAWAH SEKALI) */}
             {studentId && (
-              <form onSubmit={handleSubmit} className="bg-white p-6 rounded-[2.5rem] shadow-2xl border border-gray-50 space-y-5 animate-in fade-in slide-in-from-bottom-4">
+              <form onSubmit={handleSubmit} className="bg-white p-6 rounded-[2.5rem] shadow-2xl border-2 border-green-500 space-y-5 animate-in fade-in slide-in-from-bottom-4">
                  <div className="bg-green-50 p-4 rounded-2xl border border-green-100 flex items-center gap-3">
                    <div className="bg-green-600 p-2 rounded-xl text-white shadow-sm"><User size={20}/></div>
                    <div>
-                     <p className="text-[10px] font-black text-green-600 uppercase">Sedang Mengunci Rekod:</p>
+                     <p className="text-[10px] font-black text-green-600 uppercase">Mengunci Rekod:</p>
                      <p className="font-black text-green-900 uppercase text-xs leading-tight">{studentName}</p>
                    </div>
                  </div>
                  
                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <span className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block">Jenis Bacaan</span>
+                      <span className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block">Jenis</span>
                       <select 
                         className="w-full p-4 rounded-2xl bg-gray-50 border-none font-black text-green-700 outline-none"
                         value={readingType}
@@ -197,7 +216,7 @@ function TasmikInput() {
                       <input 
                         type="text"
                         placeholder="Cth: 2"
-                        className="w-full p-4 rounded-2xl bg-gray-50 border-none font-black outline-none"
+                        className="w-full p-4 rounded-2xl bg-gray-50 border-none font-black outline-none focus:ring-2 focus:ring-green-500"
                         value={level}
                         onChange={(e) => setLevel(e.target.value)}
                         required
@@ -210,7 +229,7 @@ function TasmikInput() {
                     <input 
                       type="number"
                       placeholder="Contoh: 45"
-                      className="w-full p-4 rounded-2xl bg-gray-50 border-none font-black outline-none"
+                      className="w-full p-4 rounded-2xl bg-gray-50 border-none font-black outline-none focus:ring-2 focus:ring-green-500"
                       value={pageNumber}
                       onChange={(e) => setPageNumber(e.target.value)}
                       required
@@ -218,10 +237,10 @@ function TasmikInput() {
                  </div>
 
                  <div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block">Catatan</span>
+                    <span className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block tracking-tighter">Catatan</span>
                     <input 
                       type="text"
-                      placeholder="Contoh: Lancar."
+                      placeholder="Contoh: Bacaan lancar."
                       className="w-full p-4 rounded-2xl bg-gray-50 border-none font-bold text-gray-600 outline-none"
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
@@ -231,10 +250,10 @@ function TasmikInput() {
                  <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-5 bg-green-600 text-white rounded-[2rem] font-black shadow-xl flex items-center justify-center gap-3 active:scale-95"
+                  className="w-full py-5 bg-green-600 text-white rounded-[2rem] font-black shadow-xl hover:bg-green-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                  >
                    {loading ? (
-                     <Loader2 className="animate-spin" />
+                     <Loader2 className="animate-spin" size={24} />
                    ) : (
                      <><Save size={24} /> SIMPAN REKOD</>
                    )}

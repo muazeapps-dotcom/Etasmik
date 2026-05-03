@@ -10,7 +10,10 @@ import {
 } from 'lucide-react';
 
 function TasmikInput() {
+  const normalizeClass = (value) => String(value || '').trim().toUpperCase();
+
   const [classes, setClasses] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
 
   const [selectedClass, setSelectedClass] = useState('');
   const [students, setStudents] = useState([]);
@@ -26,60 +29,65 @@ function TasmikInput() {
   const [remarks, setRemarks] = useState('');
 
   useEffect(() => {
-    fetchClasses();
+    fetchAllStudents();
   }, []);
 
-  // Ambil data murid berdasarkan kelas
+  // Tapis data murid berdasarkan kelas dipilih
   useEffect(() => {
     if (selectedClass) {
-      fetchStudents();
+      const selectedClassKey = normalizeClass(selectedClass);
+      const classStudents = allStudents.filter(
+        (student) => normalizeClass(student.class) === selectedClassKey
+      );
+      setStudents(classStudents);
+    } else {
+      setStudents([]);
     }
-  }, [selectedClass]);
+  }, [selectedClass, allStudents]);
 
-  const fetchClasses = async () => {
-    const { data, error } = await supabase
-      .from('students')
-      .select('class, tahun');
-
-    if (error) {
-      console.error('Ralat ambil kelas:', error);
-      return;
-    }
-
-    const uniqueClassMap = new Map();
-    (data || []).forEach((item) => {
-      if (!item.class) return;
-      if (!uniqueClassMap.has(item.class)) {
-        uniqueClassMap.set(item.class, item.tahun || '');
-      }
-    });
-
-    const classList = Array.from(uniqueClassMap.entries())
-      .sort((a, b) => {
-        const yearA = Number(a[1]) || 0;
-        const yearB = Number(b[1]) || 0;
-        if (yearA !== yearB) return yearA - yearB;
-        return a[0].localeCompare(b[0]);
-      })
-      .map(([className]) => className);
-
-    setClasses(classList);
-  };
-
-  const fetchStudents = async () => {
+  const fetchAllStudents = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('students')
       .select('id, name, class, tahun, supervisor')
-      .eq('class', selectedClass)
       .order('tahun', { ascending: true, nullsFirst: false })
+      .order('class', { ascending: true })
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Ralat ambil murid:', error);
-    } else {
-      setStudents(data);
+      console.error('Ralat ambil data students:', error);
+      setAllStudents([]);
+      setClasses([]);
+      setLoading(false);
+      return;
     }
+
+    const cleanedStudents = (data || []).map((student) => ({
+      ...student,
+      class: String(student.class || '').trim()
+    }));
+    setAllStudents(cleanedStudents);
+
+    const uniqueClassMap = new Map();
+    cleanedStudents.forEach((item) => {
+      const className = String(item.class || '').trim();
+      const classKey = normalizeClass(className);
+      if (!className || !classKey) return;
+      if (!uniqueClassMap.has(classKey)) {
+        uniqueClassMap.set(classKey, { className, tahun: item.tahun || '' });
+      }
+    });
+
+    const classList = Array.from(uniqueClassMap.values())
+      .sort((a, b) => {
+        const yearA = Number(a.tahun) || 0;
+        const yearB = Number(b.tahun) || 0;
+        if (yearA !== yearB) return yearA - yearB;
+        return a.className.localeCompare(b.className);
+      })
+      .map((entry) => entry.className);
+
+    setClasses(classList);
     setLoading(false);
   };
 

@@ -6,18 +6,11 @@ import {
   User, 
   Save, 
   Loader2, 
-  ChevronRight, 
-  GraduationCap,
-  AlertCircle
+  ChevronRight
 } from 'lucide-react';
 
 function TasmikInput() {
-  // 1. SENARAI KELAS LENGKAP
-  const classes = [
-    '4 ARIF', '4 PINTAR', '4 BIJAK', '4 CERDIK',
-    '5 ARIF', '5 PINTAR', '5 BIJAK', '5 CERDIK',
-    '6 ARIF', '6 PINTAR', '6 BIJAK', '6 CERDIK'
-  ];
+  const [classes, setClasses] = useState([]);
 
   const [selectedClass, setSelectedClass] = useState('');
   const [students, setStudents] = useState([]);
@@ -32,6 +25,10 @@ function TasmikInput() {
   const [pageNumber, setPageNumber] = useState('');
   const [remarks, setRemarks] = useState('');
 
+  useEffect(() => {
+    fetchClasses();
+  }, []);
+
   // Ambil data murid berdasarkan kelas
   useEffect(() => {
     if (selectedClass) {
@@ -39,12 +36,43 @@ function TasmikInput() {
     }
   }, [selectedClass]);
 
+  const fetchClasses = async () => {
+    const { data, error } = await supabase
+      .from('students')
+      .select('class, tahun');
+
+    if (error) {
+      console.error('Ralat ambil kelas:', error);
+      return;
+    }
+
+    const uniqueClassMap = new Map();
+    (data || []).forEach((item) => {
+      if (!item.class) return;
+      if (!uniqueClassMap.has(item.class)) {
+        uniqueClassMap.set(item.class, item.tahun || '');
+      }
+    });
+
+    const classList = Array.from(uniqueClassMap.entries())
+      .sort((a, b) => {
+        const yearA = Number(a[1]) || 0;
+        const yearB = Number(b[1]) || 0;
+        if (yearA !== yearB) return yearA - yearB;
+        return a[0].localeCompare(b[0]);
+      })
+      .map(([className]) => className);
+
+    setClasses(classList);
+  };
+
   const fetchStudents = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('students')
-      .select('*')
+      .select('id, name, class, tahun, supervisor')
       .eq('class', selectedClass)
+      .order('tahun', { ascending: true, nullsFirst: false })
       .order('name', { ascending: true });
 
     if (error) {
@@ -57,31 +85,36 @@ function TasmikInput() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!selectedClass || !studentId || !studentName) {
+      alert('Sila pilih kelas dan murid terlebih dahulu.');
+      return;
+    }
+
     if (!level || !pageNumber) {
-      alert("Sila isi Tahap/Juz dan Nombor Halaman!");
+      alert('Sila isi Tahap/Juz dan Nombor Halaman!');
       return;
     }
 
     setLoading(true);
     try {
+      const payload = {
+        student_id: studentId,
+        student_name: studentName,
+        class: selectedClass,
+        reading_type: readingType,
+        level: String(level).trim(),
+        page_number: Number.parseInt(pageNumber, 10),
+        remarks: remarks ? String(remarks).trim() : null,
+        date: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('tasmik_records')
-        .insert([
-          {
-            student_id: studentId,
-            student_name: studentName,
-            class: selectedClass,
-            reading_type: readingType,
-            level: level,
-            page_number: parseInt(pageNumber),
-            remarks: remarks,
-            date: new Date().toISOString()
-          }
-        ]);
+        .insert([payload]);
 
       if (error) throw error;
 
-      alert("✅ REKOD BERJAYA DISIMPAN!");
+      alert('✅ REKOD BERJAYA DISIMPAN!');
       // Reset borang
       setStudentId('');
       setStudentName('');
@@ -90,15 +123,21 @@ function TasmikInput() {
       setRemarks('');
       
     } catch (error) {
-      console.error('Error:', error);
-      alert("❌ GAGAL SIMPAN: Sila pastikan internet stabil.");
+      console.error('Gagal simpan tasmik_records:', error);
+      const errorCode = error?.code ? ` [${error.code}]` : '';
+      const errorMsg = error?.message || 'Unknown error';
+      const errorDetails = error?.details ? `\nButiran: ${error.details}` : '';
+      const errorHint = error?.hint ? `\nCadangan: ${error.hint}` : '';
+      alert(`❌ GAGAL SIMPAN${errorCode}\n${errorMsg}${errorDetails}${errorHint}`);
     } finally {
       setLoading(false);
     }
   };
 
   const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (s.supervisor || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(s.tahun || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -175,7 +214,12 @@ function TasmikInput() {
                         <div className={`p-2 rounded-xl ${studentId === s.id ? 'bg-green-600 text-white' : 'bg-white text-gray-400 shadow-sm'}`}>
                           <User size={16}/>
                         </div>
-                        <span className={`text-[11px] font-black uppercase ${studentId === s.id ? 'text-green-800' : 'text-gray-600'}`}>{s.name}</span>
+                        <div>
+                          <span className={`text-[11px] font-black uppercase ${studentId === s.id ? 'text-green-800' : 'text-gray-600'}`}>{s.name}</span>
+                          <p className="text-[10px] text-gray-500 font-bold mt-0.5">
+                            Tahun {s.tahun || '-'} | Penyelia: {s.supervisor || 'Tiada'}
+                          </p>
+                        </div>
                       </div>
                       <ChevronRight size={16} className={studentId === s.id ? 'text-green-600' : 'text-gray-300'} />
                     </button>

@@ -1,15 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { 
-  BookOpen, 
-  Search, 
-  User, 
-  Save, 
-  Loader2, 
-  ChevronRight
-} from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Untuk link ke laporan
+import { BookOpen, Search, User, Save, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 
 function TasmikInput() {
+  const navigate = useNavigate(); // Fungsi untuk pindah halaman
   const [classes, setClasses] = useState([]);
   const [allStudents, setAllStudents] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -17,18 +12,14 @@ function TasmikInput() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // State penting untuk borang
-  const [studentId, setStudentId] = useState('');
-  const [studentName, setStudentName] = useState('');
-  
+  // State untuk borang
+  const [activeStudentId, setActiveStudentId] = useState(null);
   const [readingType, setReadingType] = useState('Al-Quran');
   const [level, setLevel] = useState('');
   const [pageNumber, setPageNumber] = useState('');
   const [remarks, setRemarks] = useState('');
 
-  useEffect(() => {
-    fetchAllStudents();
-  }, []);
+  useEffect(() => { fetchAllStudents(); }, []);
 
   useEffect(() => {
     if (selectedClass) {
@@ -36,8 +27,6 @@ function TasmikInput() {
         String(s.class || '').trim().toUpperCase() === selectedClass.toUpperCase()
       );
       setStudents(filtered);
-    } else {
-      setStudents([]);
     }
   }, [selectedClass, allStudents]);
 
@@ -49,141 +38,126 @@ function TasmikInput() {
       if (data) {
         setAllStudents(data);
         const uniqueClasses = [...new Set(data.map(item => String(item.class || '').trim()))]
-          .filter(Boolean)
-          .sort();
+          .filter(Boolean).sort();
         setClasses(uniqueClasses);
       }
-    } catch (err) {
-      console.error('Error:', err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, student) => {
     e.preventDefault();
-    if (!studentId) return alert('Sila pilih murid!');
-    
+    if (!level || !pageNumber) {
+      alert("Sila isi Tahap/Juzuk dan Halaman!");
+      return;
+    }
+
     setLoading(true);
     try {
       const { error } = await supabase.from('tasmik_records').insert([{
-        student_id: studentId,
-        student_name: studentName,
-        class: selectedClass,
+        student_id: student.id,
+        student_name: student.name,
+        class: student.class,
         reading_type: readingType,
-        level: String(level),
+        level: level,
         page_number: parseInt(pageNumber),
         remarks: remarks,
         date: new Date().toISOString()
       }]);
-      
+
       if (error) throw error;
+
+      alert('✅ REKOD BERJAYA DISIMPAN! Membuka laporan...');
       
-      alert('✅ BERJAYA SIMPAN!');
-      // Reset borang lepas simpan
-      setStudentId('');
-      setStudentName('');
-      setLevel('');
-      setPageNumber('');
-      setRemarks('');
+      // Pindah terus ke halaman laporan
+      navigate('/reports'); // Pastikan path ini betul mengikut App.jsx cikgu
       
-    } catch (err) {
-      alert('Gagal simpan: ' + err.message);
-    } finally {
-      setLoading(false);
+    } catch (err) { 
+      alert('Gagal simpan: ' + err.message); 
+    } finally { 
+      setLoading(false); 
     }
   };
 
-  const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-green-700 p-8 rounded-b-[3rem] shadow-lg text-white">
-        <h1 className="text-2xl font-black flex items-center gap-2 uppercase"><BookOpen /> Input Tasmik</h1>
-        <p className="text-green-100 text-[10px] font-bold mt-1 uppercase">Rekod Bacaan Murid</p>
+    <div className="min-h-screen bg-gray-100 pb-20">
+      {/* HEADER */}
+      <div className="bg-green-800 p-6 text-white rounded-b-3xl shadow-lg">
+        <h1 className="text-xl font-black flex items-center gap-2"><BookOpen /> INPUT TASMIK</h1>
+        <p className="text-[10px] opacity-80 uppercase font-bold">Pilih murid dan catat bacaan</p>
       </div>
 
-      <div className="max-w-md mx-auto p-5 -mt-6 space-y-6">
-        {/* LANGKAH 1 */}
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-gray-100 text-center">
-          <span className="text-[10px] font-black text-green-600 uppercase mb-4 block tracking-widest">Langkah 1: Pilih Kelas</span>
-          <div className="grid grid-cols-2 gap-3">
-            {classes.map((c) => (
-              <button key={c} onClick={() => { setSelectedClass(c); setStudentId(''); }}
-                className={`py-3 px-2 rounded-2xl font-black text-xs transition-all border-2 ${selectedClass === c ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-100'}`}>
+      <div className="max-w-md mx-auto p-4 space-y-4">
+        {/* LANGKAH 1: PILIH KELAS */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+          <p className="text-[10px] font-black text-green-600 mb-3 uppercase text-center tracking-widest">1. Pilih Kelas</p>
+          <div className="grid grid-cols-3 gap-2">
+            {classes.map(c => (
+              <button key={c} onClick={() => {setSelectedClass(c); setActiveStudentId(null);}}
+                className={`py-2 rounded-xl font-black text-[10px] border-2 transition-all ${selectedClass === c ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-400 border-gray-100'}`}>
                 {c}
               </button>
             ))}
           </div>
         </div>
 
-        {/* LANGKAH 2 */}
+        {/* LANGKAH 2: CARI & PILIH MURID */}
         {selectedClass && (
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-gray-100">
-             <span className="text-[10px] font-black text-green-600 uppercase mb-4 block text-center tracking-widest">Langkah 2: Pilih Murid</span>
-             <div className="relative mb-4">
-                <Search className="absolute left-4 top-3 text-gray-400" size={16} />
-                <input type="text" placeholder="Cari nama..." className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none" onChange={(e) => setSearchTerm(e.target.value)} />
-             </div>
-             <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-                {filteredStudents.map(s => (
-                  <button key={s.id} 
-                    onClick={() => { 
-                      setStudentId(s.id); 
-                      setStudentName(s.name);
-                      // Scroll ke bawah sikit supaya nampak borang
-                      setTimeout(() => window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'}), 100);
-                    }}
-                    className={`w-full p-4 rounded-2xl text-left flex items-center justify-between transition-all ${studentId === s.id ? 'bg-green-600 text-white shadow-lg' : 'bg-gray-50 text-gray-700'}`}>
-                    <span className="text-[11px] font-black uppercase">{s.name}</span>
-                    <ChevronRight size={14} />
-                  </button>
-                ))}
-             </div>
+          <div className="space-y-3">
+            <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+              <input type="text" placeholder="Cari nama murid..." className="w-full p-2 bg-gray-50 rounded-lg text-sm font-bold outline-none" onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+
+            {filteredStudents.map(s => (
+              <div key={s.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
+                {/* Butang Nama Murid */}
+                <button onClick={() => setActiveStudentId(activeStudentId === s.id ? null : s.id)}
+                  className={`w-full p-4 flex items-center justify-between transition-colors ${activeStudentId === s.id ? 'bg-green-700 text-white' : 'text-gray-800'}`}>
+                  <div className="flex items-center gap-3">
+                    <User size={16} className={activeStudentId === s.id ? 'text-green-200' : 'text-gray-400'}/>
+                    <span className="font-black text-xs uppercase text-left">{s.name}</span>
+                  </div>
+                  {activeStudentId === s.id ? <ChevronUp size={18}/> : <ChevronDown size={18} className="text-gray-300"/>}
+                </button>
+
+                {/* BORANG TASMIK (Kembang bila klik nama) */}
+                {activeStudentId === s.id && (
+                  <div className="p-4 bg-white space-y-4 border-t-2 border-green-100 animate-in fade-in zoom-in-95">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Jenis</label>
+                        <select className="w-full p-3 rounded-xl bg-gray-100 font-black text-xs text-green-700 outline-none" value={readingType} onChange={(e) => setReadingType(e.target.value)}>
+                          <option value="Iqra">Iqra</option>
+                          <option value="Al-Quran">Al-Quran</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black text-gray-400 uppercase ml-1">{readingType === 'Iqra' ? 'Tahap (1-6)' : 'Juzuk (1-30)'}</label>
+                        <input type="text" placeholder="Cth: 2" className="w-full p-3 rounded-xl bg-gray-100 font-black text-xs outline-none" value={level} onChange={(e) => setLevel(e.target.value)} required />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Halaman</label>
+                      <input type="number" placeholder="Cth: 45" className="w-full p-3 rounded-xl bg-gray-100 font-black text-xs outline-none" value={pageNumber} onChange={(e) => setPageNumber(e.target.value)} required />
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-black text-gray-400 uppercase ml-1">Catatan</label>
+                      <input type="text" placeholder="Cth: Lancar" className="w-full p-3 rounded-xl bg-gray-100 font-bold text-xs outline-none" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+                    </div>
+
+                    <button onClick={(e) => handleSubmit(e, s)} disabled={loading}
+                      className="w-full py-4 bg-green-600 text-white rounded-xl font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+                      {loading ? <Loader2 className="animate-spin" /> : <><Save size={18} /> SIMPAN REKOD</>}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        )}
-
-        {/* LANGKAH 3: BORANG (Hanya keluar bila studentId ada) */}
-        {studentId && (
-          <form onSubmit={handleSubmit} className="bg-white p-6 rounded-[2.5rem] shadow-2xl border-2 border-green-500 space-y-5 animate-in fade-in slide-in-from-bottom-4">
-            <div className="bg-green-50 p-4 rounded-2xl flex items-center gap-3">
-              <div className="bg-green-600 p-2 rounded-lg text-white"><User size={18}/></div>
-              <div className="overflow-hidden">
-                <p className="text-[10px] font-black text-green-600 uppercase">Merekod Tasmik:</p>
-                <p className="font-black text-green-900 uppercase text-xs truncate">{studentName}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block">Jenis</label>
-                <select className="w-full p-4 rounded-2xl bg-gray-50 border-none font-black text-sm text-green-700" value={readingType} onChange={(e) => setReadingType(e.target.value)}>
-                  <option value="Iqra">Iqra</option>
-                  <option value="Al-Quran">Al-Quran</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block">{readingType === 'Iqra' ? 'Tahap' : 'Juzuk'}</label>
-                <input type="text" placeholder="Cth: 2" className="w-full p-4 rounded-2xl bg-gray-50 font-black text-sm outline-none" value={level} onChange={(e) => setLevel(e.target.value)} required />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block">Halaman</label>
-              <input type="number" placeholder="Contoh: 45" className="w-full p-4 rounded-2xl bg-gray-50 font-black text-sm outline-none" value={pageNumber} onChange={(e) => setPageNumber(e.target.value)} required />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block">Catatan</label>
-              <input type="text" placeholder="Contoh: Lancar" className="w-full p-4 rounded-2xl bg-gray-50 font-bold text-sm outline-none" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-            </div>
-
-            <button type="submit" disabled={loading} className="w-full py-5 bg-green-600 text-white rounded-[2rem] font-black shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-              {loading ? <Loader2 className="animate-spin" /> : <><Save size={20} /> SIMPAN REKOD</>}
-            </button>
-          </form>
         )}
       </div>
     </div>
